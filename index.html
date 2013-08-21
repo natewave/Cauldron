@@ -1,0 +1,244 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Liquid</title>
+</head>
+<body>
+  
+  <canvas id="liquid" style="border: 1px solid #000"></canvas>
+  <script>
+    // All of the javascript will go here
+
+    (function() {
+        var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || 
+                                    window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+        window.requestAnimationFrame = requestAnimationFrame;
+    })();
+
+      var universe  = document.getElementById("liquid"),
+        world     = universe.getContext("2d"),
+        width     = 500,
+        height    = 200,
+        being     = {
+          x: width / 2,
+          y: height - 5,
+          width: 5,
+          height: 5,
+          speed: 3,
+          directionX: 0,
+          directionY: 0,
+          jumping: false,
+          grounded: false
+        },
+        controlls  = [],
+        brake   = 0.8;
+        gravity = 0.3;
+
+    universe.width = width;
+    universe.height = height;
+
+    /*
+     * Defining walls
+     */
+     var walls = []
+     walls.push({
+      x: 0,
+      y: 0,
+      width: 10,
+      height: height
+    });
+    walls.push({
+        x: 0,
+        y: height - 2,
+        width: width,
+        height: 50
+    });
+    walls.push({
+        x: width - 10,
+        y: 0,
+        width: 50,
+        height: height
+    });
+
+    walls.push({
+        x: 120,
+        y: 10,
+        width: 80,
+        height: 80
+    });
+    walls.push({
+        x: 170,
+        y: 50,
+        width: 80,
+        height: 80
+    });
+    walls.push({
+        x: 220,
+        y: 100,
+        width: 80,
+        height: 80
+    });
+    walls.push({
+        x: 270,
+        y: 150,
+        width: 40,
+        height: 40
+    });
+
+      /*
+       * Collision detection between two objects
+       */
+      function colCheck(shapeA, shapeB) {
+        // get the vectors to check against
+        var vX = (shapeA.x + (shapeA.width / 2)) - (shapeB.x + (shapeB.width / 2)),
+            vY = (shapeA.y + (shapeA.height / 2)) - (shapeB.y + (shapeB.height / 2)),
+            // add the half widths and half heights of the objects
+            hWidths = (shapeA.width / 2) + (shapeB.width / 2),
+            hHeights = (shapeA.height / 2) + (shapeB.height / 2),
+            colDir = null;
+     
+        // if the x and y vector are less than the half width or half height, they we must be inside the object, causing a collision
+        if (Math.abs(vX) < hWidths && Math.abs(vY) < hHeights) {
+          // we have a collision, 
+          // figure out on which side we are colliding (top, bottom, left, or right) 
+          var oX = hWidths - Math.abs(vX),
+              oY = hHeights - Math.abs(vY);
+          if (oX >= oY) {
+                // either top or bottom
+                if (vY > 0) {
+                    colDir = "t";
+                    shapeA.y += oY;
+                } else {
+                    colDir = "b";
+                    shapeA.y -= oY;
+                }
+            } else {
+                if (vX > 0) {
+                    colDir = "l";
+                    shapeA.x += oX;
+                } else {
+                    colDir = "r";
+                    shapeA.x -= oX;
+                }
+            }
+        }
+        return colDir;
+      }
+
+    
+
+    // render
+    function render() {
+      world.clearRect(0, 0, width, height);
+
+      // Draw the walls
+      world.fillStyle = "black";
+      world.beginPath();
+
+      being.grounded = false;
+      for (var i = 0; i < walls.length; i++) {
+          world.rect(walls[i].x, walls[i].y, walls[i].width, walls[i].height);
+          var dir = colCheck(being, walls[i]);
+
+          if (dir === "l" || dir === "r") {
+               being.directionX = 0;
+           } else if (dir === "b") {
+               being.grounded = true;
+               being.jumping = false;
+           } else if (dir === "t") {
+               being.jumping = true;
+               being.grounded = false;
+               being.directionY *= -1;
+           } 
+
+           if(being.grounded) {
+              being.directionY = 0;
+           }
+      }
+
+      // Now that we know which direction to go, actually move the being
+       being.x += being.directionX;
+       being.y += being.directionY;
+      
+      
+      world.fill();
+
+      // Draw the being
+      world.fillStyle = "blue";
+      world.fillRect(being.x, being.y, being.width, being.height);
+    }
+
+    // handle the user input
+    function wand() {
+      // check which key is pressed
+       if (controlls[38] || controlls[32] || controlls[87]) {
+           // up arrow or space
+           if(!being.jumping && being.grounded) {
+              being.jumping = true;
+              being.grounded = false;
+              being.directionY = -being.speed * 2;
+           }
+       }
+       if (controlls[39] || controlls[68]) {
+           // right arrow
+           if (being.directionX < being.speed) {
+               being.directionX++;
+           }          
+       }          
+       if (controlls[37] || controlls[65]) {
+            // left arrow
+            // the speed decide if we move to directionX or not, we don't wanna go too fast
+           if (being.directionX > -being.speed) {
+               being.directionX--;
+           }
+       }
+
+       being.directionX *= brake;
+       being.directionY += gravity;
+
+       // don't go off the canvas
+       // if (being.x >= width - being.width) {
+       //    being.x = width - being.width;
+       // } else if (being.x <= 0) {
+       //    being.x = 0;
+       // }
+
+       // if (being.y >= height - being.height) {
+       //    being.y = height - being.height;
+       //    being.jumping = false;
+       // }
+
+       
+    }
+
+    // Mix, aka update loop
+    function thick() {
+      // handle user input
+      wand();
+
+      // put the ingredients
+      render();
+
+      // keep mixing
+      requestAnimationFrame(thick);
+    }
+
+    window.addEventListener("load", function() {
+      thick();
+    });
+
+    /*
+     * Tracking multiple keys at one time
+     */
+
+    document.body.addEventListener("keydown", function(e) {
+        controlls[e.keyCode] = true;
+    });
+    // set pressed to false once the key is no more pressed
+    document.body.addEventListener("keyup", function(e) {
+        controlls[e.keyCode] = false;
+    });
+
+  </script>
+</body>
+</html>
